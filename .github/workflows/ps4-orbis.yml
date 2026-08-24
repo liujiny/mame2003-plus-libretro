@@ -54,7 +54,7 @@ jobs:
         run: |
           export PATH="/root/dotnet:$PATH"
           cp ../mame2003-plus-libretro/mame2003_plus_libretro_orbis.a libretro_orbis.a
-          make -f Makefile.orbis -j$(getconf _NPROCESSORS_ONLN) info all
+          make -f Makefile.orbis -j$(getconf _NPROCESSORS_ONLN) HAVE_CHD=0 info all
           cp retroarch_orbis.self eboot.bin
           test -s retroarch_orbis.elf
           test -s retroarch_orbis.oelf
