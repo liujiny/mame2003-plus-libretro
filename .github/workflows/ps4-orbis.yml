@@ -28,11 +28,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          apk add --no-cache bash git make ncurses-dev python2
-          apk add --no-cache icu-dev libintl wget
-          wget https://dot.net/v1/dotnet-install.sh
-          chmod 755 dotnet-install.sh
-          ./dotnet-install.sh -c 3.0 --install-dir /root/dotnet
+          apk add --no-cache bash git go make ncurses-dev python2
 
       - name: Build MAME 2003-Plus static core
         working-directory: mame2003-plus-libretro
@@ -49,10 +45,23 @@ jobs:
           path: RetroArch
           fetch-depth: 1
 
+      - name: Checkout OpenOrbis create-fself
+        uses: actions/checkout@v4
+        with:
+          repository: OpenOrbis/create-fself
+          path: create-fself
+          fetch-depth: 1
+
+      - name: Build OpenOrbis create-fself
+        working-directory: create-fself/cmd/create-fself
+        run: |
+          go version
+          go build -trimpath -o /usr/local/bin/create-fself .
+          create-fself -h || true
+
       - name: Link the core into RetroArch ELF
         working-directory: RetroArch
         run: |
-          export PATH="/root/dotnet:$PATH"
           cp ../mame2003-plus-libretro/mame2003_plus_libretro_orbis.a libretro_orbis.a
           make -f Makefile.orbis -j$(getconf _NPROCESSORS_ONLN) HAVE_CHD=0 info retroarch_orbis.elf
           test -s retroarch_orbis.elf
@@ -60,35 +69,39 @@ jobs:
           ls -lh retroarch_orbis.elf
           orbis-size retroarch_orbis.elf || true
 
-      - name: Strip and convert ELF to PS4 fSELF
+      - name: Convert ELF to eboot.bin with OpenOrbis
         working-directory: RetroArch
-        timeout-minutes: 25
+        timeout-minutes: 15
         run: |
-          export PATH="/root/dotnet:$PATH"
           command -v orbis-strip
-          command -v orbis-elf-create
+          command -v create-fself
           cp retroarch_orbis.elf retroarch_orbis.unstripped.elf
           orbis-strip --strip-unneeded retroarch_orbis.elf
           echo "After strip:"
           ls -lh retroarch_orbis.unstripped.elf retroarch_orbis.elf
           orbis-size retroarch_orbis.elf || true
-          timeout -s TERM 20m make -f Makefile.orbis HAVE_CHD=0 retroarch_orbis.self
-          cp retroarch_orbis.self eboot.bin
+          timeout -s TERM 10m create-fself \
+            -in retroarch_orbis.elf \
+            -out retroarch_orbis.oelf \
+            -eboot eboot.bin \
+            -paid 0x3800000000000011
+          cp eboot.bin retroarch_orbis.self
           test -s retroarch_orbis.elf
           test -s retroarch_orbis.oelf
           test -s retroarch_orbis.self
           test -s eboot.bin
 
-      - name: Upload ELF diagnostics if conversion fails
+      - name: Upload conversion diagnostics if conversion fails
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: mame2003-plus-ps4-elf-diagnostics-${{ github.sha }}
+          name: mame2003-plus-ps4-conversion-diagnostics-${{ github.sha }}
           if-no-files-found: warn
           retention-days: 3
           path: |
             RetroArch/retroarch_orbis.elf
             RetroArch/retroarch_orbis.unstripped.elf
+            RetroArch/retroarch_orbis.oelf
 
       - name: Collect build metadata
         id: metadata
