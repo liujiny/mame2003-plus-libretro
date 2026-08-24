@@ -56,6 +56,11 @@ jobs:
         working-directory: create-fself/cmd/create-fself
         run: |
           go version
+          # Upstream currently checks in Windows-style local replace paths.
+          # Convert them to portable Linux paths before Go parses go.mod.
+          sed -i 's#\\#/#g; s#//#/#g' go.mod
+          grep -F '=> ../../pkg/fself' go.mod
+          grep -F '=> ../../pkg/oelf' go.mod
           go build -trimpath -o /usr/local/bin/create-fself .
           create-fself -h || true
 
