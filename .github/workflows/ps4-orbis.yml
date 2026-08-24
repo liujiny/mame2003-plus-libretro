@@ -1,0 +1,83 @@
+name: Build MAME 2003-Plus for PS4 ORBIS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - main
+
+permissions:
+  contents: read
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: reallibretroretroarch/libretro-build-orbis:latest
+      options: --user root
+
+    steps:
+      - name: Checkout MAME 2003-Plus
+        uses: actions/checkout@v4
+        with:
+          path: mame2003-plus-libretro
+
+      - name: Install build dependencies
+        run: |
+          apk add --no-cache bash git make ncurses-dev python2
+          apk add --no-cache icu-dev libintl wget
+          wget https://dot.net/v1/dotnet-install.sh
+          chmod 755 dotnet-install.sh
+          ./dotnet-install.sh -c 3.0 --install-dir /root/dotnet
+
+      - name: Build MAME 2003-Plus static core
+        working-directory: mame2003-plus-libretro
+        run: |
+          test -n "$ORBISDEV"
+          make platform=orbis clean
+          make platform=orbis -j$(getconf _NPROCESSORS_ONLN)
+          test -s mame2003_plus_libretro_orbis.a
+
+      - name: Checkout RetroArch
+        uses: actions/checkout@v4
+        with:
+          repository: libretro/RetroArch
+          path: RetroArch
+          fetch-depth: 1
+
+      - name: Link the core into RetroArch
+        working-directory: RetroArch
+        run: |
+          export PATH="/root/dotnet:$PATH"
+          cp ../mame2003-plus-libretro/mame2003_plus_libretro_orbis.a libretro_orbis.a
+          make -f Makefile.orbis -j$(getconf _NPROCESSORS_ONLN) info all
+          cp retroarch_orbis.self eboot.bin
+          test -s retroarch_orbis.elf
+          test -s retroarch_orbis.oelf
+          test -s retroarch_orbis.self
+          test -s eboot.bin
+
+      - name: Collect build metadata
+        id: metadata
+        shell: bash
+        run: |
+          echo "sha8=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          clang --version
+          orbis-ld --version
+
+      - name: Upload PS4 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: mame2003-plus-ps4-${{ steps.metadata.outputs.sha8 }}
+          if-no-files-found: error
+          path: |
+            mame2003-plus-libretro/mame2003_plus_libretro_orbis.a
+            RetroArch/retroarch_orbis.elf
+            RetroArch/retroarch_orbis.oelf
+            RetroArch/retroarch_orbis.self
+            RetroArch/eboot.bin
+
