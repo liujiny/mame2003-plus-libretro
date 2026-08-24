@@ -1,4 +1,4 @@
-name: Build MAME 2003-Plus for PS4 ORBIS
+name: Build MAME 2003-Plus for PS4 R4
 
 on:
   workflow_dispatch:
@@ -17,9 +17,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: reallibretroretroarch/libretro-build-orbis:latest
-      options: --user root
 
     steps:
       - name: Checkout MAME 2003-Plus
@@ -29,80 +26,74 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          apk add --no-cache bash git make ncurses-dev python2 tar wget
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld-18 llvm-18 make tar wget
+          sudo ln -sf /usr/bin/clang-18 /usr/local/bin/clang
+          sudo ln -sf /usr/bin/clang++-18 /usr/local/bin/clang++
+          sudo ln -sf /usr/bin/ld.lld-18 /usr/local/bin/ld.lld
+          sudo ln -sf /usr/bin/llvm-ar-18 /usr/local/bin/llvm-ar
+          clang --version
+          ld.lld --version
 
-      - name: Build MAME 2003-Plus static core
-        working-directory: mame2003-plus-libretro
-        run: |
-          test -n "$ORBISDEV"
-          make platform=orbis clean
-          make platform=orbis -j$(getconf _NPROCESSORS_ONLN)
-          test -s mame2003_plus_libretro_orbis.a
-
-      - name: Checkout RetroArch
-        uses: actions/checkout@v4
-        with:
-          repository: libretro/RetroArch
-          path: RetroArch
-          fetch-depth: 1
-
-      - name: Install OpenOrbis conversion toolchain
+      - name: Install OpenOrbis v0.5.4
         run: |
           wget -q --show-progress \
             https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz \
             -O /tmp/openorbis-toolchain.tar.gz
-          mkdir -p "$OO_PS4_TOOLCHAIN"
-          tar --no-same-owner -xzf /tmp/openorbis-toolchain.tar.gz \
+          sudo mkdir -p "$OO_PS4_TOOLCHAIN"
+          sudo tar --no-same-owner -xzf /tmp/openorbis-toolchain.tar.gz \
             -C "$OO_PS4_TOOLCHAIN" --strip-components=2
-          chmod +x "$OO_PS4_TOOLCHAIN/bin/linux/create-fself"
-          ln -sf "$OO_PS4_TOOLCHAIN/bin/linux/create-fself" /usr/local/bin/create-fself
-          test -x /usr/local/bin/create-fself
-          test -s "$OO_PS4_TOOLCHAIN/lib/libkernel.so"
-          test -s "$OO_PS4_TOOLCHAIN/lib/libScePad.so"
+          sudo chmod +x "$OO_PS4_TOOLCHAIN/bin/linux/create-fself"
+          test -s "$OO_PS4_TOOLCHAIN/link.x"
+          test -s "$OO_PS4_TOOLCHAIN/lib/crt1.o"
+          test -x "$OO_PS4_TOOLCHAIN/bin/linux/create-fself"
 
-      - name: Link the core into RetroArch ELF
+      - name: Build MAME 2003-Plus OpenOrbis static core
+        working-directory: mame2003-plus-libretro
+        run: |
+          make platform=ps4 clean
+          make platform=ps4 -j$(getconf _NPROCESSORS_ONLN)
+          test -s libretro_ps4.a
+
+      - name: Checkout RetroArch R4
+        uses: actions/checkout@v4
+        with:
+          repository: OsirizX/RetroArch
+          ref: ps4_r4
+          path: RetroArch
+          fetch-depth: 1
+
+      - name: Prepare RetroArch R4 for current OpenOrbis
         working-directory: RetroArch
         run: |
-          cp ../mame2003-plus-libretro/mame2003_plus_libretro_orbis.a libretro_orbis.a
-          make -f Makefile.orbis -j$(getconf _NPROCESSORS_ONLN) HAVE_CHD=0 info retroarch_orbis.elf
-          test -s retroarch_orbis.elf
-          echo "Before strip:"
-          ls -lh retroarch_orbis.elf
-          orbis-size retroarch_orbis.elf || true
+          cp ../mame2003-plus-libretro/libretro_ps4.a libretro_ps4.a
+          sed -i 's#LIBDIRS += #LIBDIRS += -L$(OO_PS4_TOOLCHAIN)/lib #' Makefile.ps4
+          sed -i 's#INCDIRS += #INCDIRS += -I$(OO_PS4_TOOLCHAIN)/include -I$(OO_PS4_TOOLCHAIN)/include/c++/v1 #' Makefile.ps4
+          sed -i 's#create-eboot -in=$(TARGET).elf -out=$(TARGET).oelf --paid 0x3800000000000011#create-fself -in=$(TARGET).elf -out=$(TARGET).oelf -eboot=eboot.bin -paid 0x3800000000000011#' Makefile.ps4
+          grep -F -- '-L$(OO_PS4_TOOLCHAIN)/lib' Makefile.ps4
+          grep -F -- 'create-fself -in=$(TARGET).elf' Makefile.ps4
 
-      - name: Convert ELF to eboot.bin with OpenOrbis
+      - name: Build RetroArch R4 and eboot.bin
         working-directory: RetroArch
-        timeout-minutes: 15
+        timeout-minutes: 30
         run: |
-          command -v create-fself
-          test -s "$ORBISDEV/usr/lib/libkernel_stub.so"
-          cp retroarch_orbis.elf retroarch_orbis.unstripped.elf
-          echo "Unstripped ELF for create-fself:"
-          ls -lh retroarch_orbis.unstripped.elf retroarch_orbis.elf
-          orbis-size retroarch_orbis.elf || true
-          timeout -s TERM 10m create-fself \
-            -in retroarch_orbis.elf \
-            -out retroarch_orbis.oelf \
-            -eboot eboot.bin \
-            -library-path "$ORBISDEV/usr/lib" \
-            -paid 0x3800000000000011
-          cp eboot.bin retroarch_orbis.self
-          test -s retroarch_orbis.elf
-          test -s retroarch_orbis.oelf
-          test -s retroarch_orbis.self
+          make -f Makefile.ps4 -j$(getconf _NPROCESSORS_ONLN) HAVE_CHD=0
+          test -s retroarch_ps4.elf
+          test -s retroarch_ps4.oelf
           test -s eboot.bin
+          ls -lh retroarch_ps4.elf retroarch_ps4.oelf eboot.bin
 
-      - name: Upload conversion diagnostics if conversion fails
+      - name: Upload diagnostics if build fails
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: mame2003-plus-ps4-conversion-diagnostics-${{ github.sha }}
+          name: mame2003-plus-ps4-r4-diagnostics-${{ github.sha }}
           if-no-files-found: warn
           retention-days: 3
           path: |
-            RetroArch/retroarch_orbis.elf
-            RetroArch/retroarch_orbis.unstripped.elf
-            RetroArch/retroarch_orbis.oelf
+            mame2003-plus-libretro/libretro_ps4.a
+            RetroArch/retroarch_ps4.elf
+            RetroArch/retroarch_ps4.oelf
 
       - name: Collect build metadata
         id: metadata
@@ -110,16 +101,15 @@ jobs:
         run: |
           echo "sha8=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
           clang --version
-          orbis-ld --version
+          ld.lld --version
 
-      - name: Upload PS4 build
+      - name: Upload PS4 R4 build
         uses: actions/upload-artifact@v4
         with:
-          name: mame2003-plus-ps4-${{ steps.metadata.outputs.sha8 }}
+          name: mame2003-plus-ps4-r4-${{ steps.metadata.outputs.sha8 }}
           if-no-files-found: error
           path: |
-            mame2003-plus-libretro/mame2003_plus_libretro_orbis.a
-            RetroArch/retroarch_orbis.elf
-            RetroArch/retroarch_orbis.oelf
-            RetroArch/retroarch_orbis.self
+            mame2003-plus-libretro/libretro_ps4.a
+            RetroArch/retroarch_ps4.elf
+            RetroArch/retroarch_ps4.oelf
             RetroArch/eboot.bin
