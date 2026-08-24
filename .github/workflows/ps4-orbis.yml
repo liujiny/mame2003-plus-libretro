@@ -76,6 +76,7 @@ jobs:
         run: |
           command -v orbis-strip
           command -v create-fself
+          test -s "$ORBISDEV/usr/lib/libkernel_stub.so"
           cp retroarch_orbis.elf retroarch_orbis.unstripped.elf
           orbis-strip --strip-unneeded retroarch_orbis.elf
           echo "After strip:"
@@ -85,6 +86,7 @@ jobs:
             -in retroarch_orbis.elf \
             -out retroarch_orbis.oelf \
             -eboot eboot.bin \
+            -library-path "$ORBISDEV/usr/lib" \
             -paid 0x3800000000000011
           cp eboot.bin retroarch_orbis.self
           test -s retroarch_orbis.elf
