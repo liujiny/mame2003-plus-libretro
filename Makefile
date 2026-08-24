@@ -484,6 +484,23 @@ else ifeq ($(platform), vita)
 	USE_CYCLONE := 1
 	USE_DRZ80 := 1
 
+# Sony PlayStation 4 (OrbisDev)
+else ifeq ($(platform), orbis)
+	ifeq ($(strip $(ORBISDEV)),)
+		$(error "Please set ORBISDEV in your environment. export ORBISDEV=<path to>orbisdev")
+	endif
+	TARGET := $(TARGET_NAME)_libretro_$(platform).a
+	CC := clang
+	CXX := clang++
+	AR := orbis-ar
+	PLATCFLAGS += --target=x86_64-scei-ps4
+	PLATCFLAGS += -DORBIS -D__ORBIS__ -D__PS4__ -D_BSD_SOURCE
+	PLATCFLAGS += -isysroot $(ORBISDEV)
+	PLATCFLAGS += -fPIE -ffunction-sections -fdata-sections
+	CXXFLAGS += -fno-rtti -fno-exceptions
+	HAVE_RZLIB := 1
+	STATIC_LINKING := 1
+
 # ARMv
 else ifneq (,$(findstring armv,$(platform)))
 	TARGET = $(TARGET_NAME)_libretro.so
