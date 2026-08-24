@@ -48,6 +48,14 @@ jobs:
           test -s "$OO_PS4_TOOLCHAIN/lib/crt1.o"
           test -x "$OO_PS4_TOOLCHAIN/bin/linux/create-fself"
 
+      - name: Patch legacy libFLAC for OpenOrbis
+        working-directory: mame2003-plus-libretro
+        run: |
+          sed -i '0,/^#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__)$/s//#if !defined(__PS4__) \&\& (defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__))/' \
+            src/libretro-deps/libFLAC/cpu.c
+          grep -F '#if !defined(__PS4__) && (defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__))' \
+            src/libretro-deps/libFLAC/cpu.c
+
       - name: Build MAME 2003-Plus OpenOrbis static core
         working-directory: mame2003-plus-libretro
         run: |
