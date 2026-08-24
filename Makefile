@@ -484,7 +484,26 @@ else ifeq ($(platform), vita)
 	USE_CYCLONE := 1
 	USE_DRZ80 := 1
 
-# Sony PlayStation 4 (OrbisDev)
+# Sony PlayStation 4 (OpenOrbis, RetroArch R4)
+else ifeq ($(platform), ps4)
+	ifeq ($(strip $(OO_PS4_TOOLCHAIN)),)
+		$(error "Please set OO_PS4_TOOLCHAIN in your environment. export OO_PS4_TOOLCHAIN=<path to>OpenOrbis")
+	endif
+	TARGET := libretro_ps4.a
+	CC := clang
+	CXX := clang++
+	AR := llvm-ar
+	PLATCFLAGS += --target=x86_64-scei-ps4-elf
+	PLATCFLAGS += -DORBIS -D__ORBIS__ -D__PS4__ -DHAVE_OOSDK
+	PLATCFLAGS += -nostdinc
+	PLATCFLAGS += -isystem $(OO_PS4_TOOLCHAIN)/include
+	PLATCFLAGS += -isystem $(shell $(CC) -print-resource-dir)/include
+	PLATCFLAGS += -fPIE -ffunction-sections -fdata-sections
+	CXXFLAGS += -fno-rtti -fno-exceptions
+	HAVE_RZLIB := 1
+	STATIC_LINKING := 1
+
+# Sony PlayStation 4 (OrbisDev; retained for legacy builds)
 else ifeq ($(platform), orbis)
 	ifeq ($(strip $(ORBISDEV)),)
 		$(error "Please set ORBISDEV in your environment. export ORBISDEV=<path to>orbisdev")
