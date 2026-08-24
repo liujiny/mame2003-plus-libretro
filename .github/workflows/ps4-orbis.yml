@@ -74,12 +74,10 @@ jobs:
         working-directory: RetroArch
         timeout-minutes: 15
         run: |
-          command -v orbis-strip
           command -v create-fself
           test -s "$ORBISDEV/usr/lib/libkernel_stub.so"
           cp retroarch_orbis.elf retroarch_orbis.unstripped.elf
-          orbis-strip --strip-unneeded retroarch_orbis.elf
-          echo "After strip:"
+          echo "Unstripped ELF for create-fself:"
           ls -lh retroarch_orbis.unstripped.elf retroarch_orbis.elf
           orbis-size retroarch_orbis.elf || true
           timeout -s TERM 10m create-fself \
