@@ -12,6 +12,7 @@ permissions:
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+  OO_PS4_TOOLCHAIN: /opt/openorbis
 
 jobs:
   build:
@@ -28,7 +29,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          apk add --no-cache bash git go make ncurses-dev python2
+          apk add --no-cache bash git make ncurses-dev python2 tar wget
 
       - name: Build MAME 2003-Plus static core
         working-directory: mame2003-plus-libretro
@@ -45,24 +46,19 @@ jobs:
           path: RetroArch
           fetch-depth: 1
 
-      - name: Checkout OpenOrbis create-fself
-        uses: actions/checkout@v4
-        with:
-          repository: OpenOrbis/create-fself
-          path: create-fself
-          fetch-depth: 1
-
-      - name: Build OpenOrbis create-fself
-        working-directory: create-fself/cmd/create-fself
+      - name: Install OpenOrbis conversion toolchain
         run: |
-          go version
-          # Upstream currently checks in Windows-style local replace paths.
-          # Convert them to portable Linux paths before Go parses go.mod.
-          sed -i 's#\\#/#g; s#//#/#g' go.mod
-          grep -F '=> ../../pkg/fself' go.mod
-          grep -F '=> ../../pkg/oelf' go.mod
-          go build -trimpath -o /usr/local/bin/create-fself .
-          create-fself -h || true
+          wget -q --show-progress \
+            https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz \
+            -O /tmp/openorbis-toolchain.tar.gz
+          mkdir -p "$OO_PS4_TOOLCHAIN"
+          tar --no-same-owner -xzf /tmp/openorbis-toolchain.tar.gz \
+            -C "$OO_PS4_TOOLCHAIN" --strip-components=2
+          chmod +x "$OO_PS4_TOOLCHAIN/bin/linux/create-fself"
+          ln -sf "$OO_PS4_TOOLCHAIN/bin/linux/create-fself" /usr/local/bin/create-fself
+          test -x /usr/local/bin/create-fself
+          test -s "$OO_PS4_TOOLCHAIN/lib/libkernel.so"
+          test -s "$OO_PS4_TOOLCHAIN/lib/libScePad.so"
 
       - name: Link the core into RetroArch ELF
         working-directory: RetroArch
