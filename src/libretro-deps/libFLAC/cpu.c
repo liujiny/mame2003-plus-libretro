@@ -78,7 +78,7 @@ static void sigill_handler (int sig)
 #include <machine/cpu.h>
 #endif
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__)
+#if !defined(__PS4__) && (defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__))
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #endif
