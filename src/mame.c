@@ -592,13 +592,29 @@ static int vh_open(void)
 
 	/* first allocate the necessary palette structures */
 	if (palette_start())
+	{
+#ifdef ORBIS
+		log_cb(RETRO_LOG_ERROR, LOGPRE "vh_open failed: palette_start\n");
+#endif
 		goto cant_start_palette;
+	}
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE "vh_open palette_start succeeded\n");
+#endif
 
 	/* convert the gfx ROMs into character sets. This is done BEFORE calling the driver's */
 	/* palette_init() routine because it might need to check the Machine->gfx[] data */
 	if (Machine->drv->gfxdecodeinfo)
 		if (decode_graphics(Machine->drv->gfxdecodeinfo))
+		{
+#ifdef ORBIS
+			log_cb(RETRO_LOG_ERROR, LOGPRE "vh_open failed: decode_graphics\n");
+#endif
 			goto cant_decode_graphics;
+		}
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE "vh_open decode_graphics succeeded\n");
+#endif
 
 	/* if we're a vector game, override the screen width and height */
 	if (Machine->drv->video_attributes & VIDEO_TYPE_VECTOR)
@@ -628,7 +644,15 @@ static int vh_open(void)
 
 	/* initialize the display through the artwork (and eventually the OSD) layer */
 	if (artwork_create_display(&params, direct_rgb_components, artcallbacks))
+	{
+#ifdef ORBIS
+		log_cb(RETRO_LOG_ERROR, LOGPRE "vh_open failed: artwork_create_display\n");
+#endif
 		goto cant_create_display;
+	}
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE "vh_open artwork_create_display succeeded\n");
+#endif
 
 	/* the create display process may update the vector width/height, so recompute */
 	if (Machine->drv->video_attributes & VIDEO_TYPE_VECTOR)
@@ -640,7 +664,18 @@ static int vh_open(void)
 	/* now allocate the screen bitmap */
 	Machine->scrbitmap = auto_bitmap_alloc_depth(bmwidth, bmheight, Machine->color_depth);
 	if (!Machine->scrbitmap)
+	{
+#ifdef ORBIS
+		log_cb(RETRO_LOG_ERROR, LOGPRE
+				"vh_open failed: screen bitmap %dx%dx%d\n",
+				bmwidth, bmheight, Machine->color_depth);
+#endif
 		goto cant_create_scrbitmap;
+	}
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE "vh_open screen bitmap succeeded ptr=%p\n",
+			(void*)Machine->scrbitmap);
+#endif
 
 	/* set the default visible area */
 	set_visible_area(0,1,0,1);	/* make sure everything is recalculated on multiple runs */
@@ -653,7 +688,15 @@ static int vh_open(void)
 	/* create spriteram buffers if necessary */
 	if (Machine->drv->video_attributes & VIDEO_BUFFERS_SPRITERAM)
 		if (init_buffered_spriteram())
+		{
+#ifdef ORBIS
+			log_cb(RETRO_LOG_ERROR, LOGPRE "vh_open failed: buffered spriteram\n");
+#endif
 			goto cant_init_buffered_spriteram;
+		}
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE "vh_open buffered spriteram succeeded\n");
+#endif
 
 	/* build our private user interface font */
 	/* This must be done AFTER osd_create_display() so the function knows the */
@@ -662,7 +705,16 @@ static int vh_open(void)
 	/* (through osd_allocate_colors()) the uifont colortable. */
 	Machine->uifont = builduifont();
 	if (Machine->uifont == NULL)
+	{
+#ifdef ORBIS
+		log_cb(RETRO_LOG_ERROR, LOGPRE "vh_open failed: builduifont\n");
+#endif
 		goto cant_build_uifont;
+	}
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE "vh_open builduifont succeeded ptr=%p\n",
+			(void*)Machine->uifont);
+#endif
 
 #ifdef MAME_DEBUG
 	/* if the debugger is enabled, initialize its bitmap and font */
@@ -684,7 +736,15 @@ static int vh_open(void)
 
 	/* initialize the palette - must be done after osd_create_display() */
 	if (palette_init())
+	{
+#ifdef ORBIS
+		log_cb(RETRO_LOG_ERROR, LOGPRE "vh_open failed: palette_init\n");
+#endif
 		goto cant_init_palette;
+	}
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE "vh_open palette_init succeeded\n");
+#endif
 
 	/* force the first update to be full */
 	set_vh_global_attribute(NULL, 0);
