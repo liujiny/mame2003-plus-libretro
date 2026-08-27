@@ -8,3 +8,4 @@
 package.json
 .npmignore
 .orbis-dynamic-stubs/
+.orbis-dynamic-allocator/

@@ -542,6 +542,19 @@ else ifeq ($(platform), orbis-dynamic)
 	LDFLAGS += --version-script=link.T
 	LIBS := $(filter-out -lm,$(LIBS))
 	LIBS += $(OO_PS4_TOOLCHAIN)/lib/crtlib.o
+	# A loadable SELF does not have the application's sceLibcParam, so the
+	# LibcInternal module heap is too small for arcade ROM regions and video
+	# bitmaps.  Use only OpenOrbis' mmap-backed allocator objects; keep all
+	# other libc calls on the verified OrbisDev LibcInternal stubs.
+	PS4_DYNAMIC_ALLOCATOR_DIR := $(CURDIR)/.orbis-dynamic-allocator
+	PS4_DYNAMIC_ALLOCATOR_NAMES := malloc.lo strdup.lo \
+		__errno_location.lo expand_heap.lo libc.lo madvise.lo mmap.lo \
+		mremap.lo munmap.lo __wait.lo
+	PS4_DYNAMIC_ALLOCATOR_OBJECTS := \
+		$(addprefix $(PS4_DYNAMIC_ALLOCATOR_DIR)/,$(PS4_DYNAMIC_ALLOCATOR_NAMES))
+	PS4_DYNAMIC_ALLOCATOR_STAMP := $(PS4_DYNAMIC_ALLOCATOR_DIR)/.ready
+	EXTRA_DEPS += $(PS4_DYNAMIC_ALLOCATOR_STAMP)
+	LIBS += $(PS4_DYNAMIC_ALLOCATOR_OBJECTS)
 	PS4_DYNAMIC_STUB_DIR := $(CURDIR)/.orbis-dynamic-stubs
 	PS4_DYNAMIC_STUBS := $(PS4_DYNAMIC_STUB_DIR)/libkernel.so \
 		$(PS4_DYNAMIC_STUB_DIR)/libSceLibcInternal.so
@@ -994,6 +1007,12 @@ endif
 endif
 
 ifeq ($(platform),orbis-dynamic)
+$(PS4_DYNAMIC_ALLOCATOR_STAMP): $(OO_PS4_TOOLCHAIN)/lib/libc.a
+	@mkdir -p $(PS4_DYNAMIC_ALLOCATOR_DIR)
+	@cd $(PS4_DYNAMIC_ALLOCATOR_DIR) && \
+		$(AR) x $(OO_PS4_TOOLCHAIN)/lib/libc.a $(PS4_DYNAMIC_ALLOCATOR_NAMES)
+	@touch $@
+
 $(PS4_DYNAMIC_STUB_DIR)/libkernel.so:
 	@mkdir -p $(PS4_DYNAMIC_STUB_DIR)
 	@ln -sf $(ORBISDEV)/usr/lib/libkernel_stub.so $@
