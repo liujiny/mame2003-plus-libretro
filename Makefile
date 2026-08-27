@@ -544,9 +544,9 @@ else ifeq ($(platform), orbis-dynamic)
 	LIBS += $(OO_PS4_TOOLCHAIN)/lib/crtlib.o
 	PS4_DYNAMIC_STUB_DIR := $(CURDIR)/.orbis-dynamic-stubs
 	PS4_DYNAMIC_STUBS := $(PS4_DYNAMIC_STUB_DIR)/libkernel.so \
-		$(PS4_DYNAMIC_STUB_DIR)/libc.so
+		$(PS4_DYNAMIC_STUB_DIR)/libSceLibcInternal.so
 	EXTRA_DEPS += $(PS4_DYNAMIC_STUBS)
-	LIBS += -L$(PS4_DYNAMIC_STUB_DIR) -lkernel -lc
+	LIBS += -L$(PS4_DYNAMIC_STUB_DIR) -lkernel -lSceLibcInternal
 	HAVE_RZLIB := 1
 
 # ARMv
@@ -998,7 +998,7 @@ $(PS4_DYNAMIC_STUB_DIR)/libkernel.so:
 	@mkdir -p $(PS4_DYNAMIC_STUB_DIR)
 	@ln -sf $(ORBISDEV)/usr/lib/libkernel_stub.so $@
 
-$(PS4_DYNAMIC_STUB_DIR)/libc.so:
+$(PS4_DYNAMIC_STUB_DIR)/libSceLibcInternal.so:
 	@mkdir -p $(PS4_DYNAMIC_STUB_DIR)
 	@ln -sf $(ORBISDEV)/usr/lib/libSceLibcInternal_stub.so $@
 endif
