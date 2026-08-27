@@ -6,3 +6,4 @@
 *.so
 package.json
 .npmignore
+.orbis-dynamic-stubs/

@@ -485,6 +485,71 @@ else ifeq ($(platform), vita)
 	USE_CYCLONE := 1
 	USE_DRZ80 := 1
 
+# Sony PlayStation 4 (OpenOrbis, RetroArch R4)
+else ifeq ($(platform), ps4)
+	ifeq ($(strip $(OO_PS4_TOOLCHAIN)),)
+		$(error "Please set OO_PS4_TOOLCHAIN in your environment. export OO_PS4_TOOLCHAIN=<path to>OpenOrbis")
+	endif
+	TARGET := libretro_ps4.a
+	CC := clang
+	CXX := clang++
+	AR := llvm-ar
+	PLATCFLAGS += --target=x86_64-scei-ps4-elf
+	PLATCFLAGS += -DORBIS -D__ORBIS__ -D__PS4__ -DHAVE_OOSDK
+	PLATCFLAGS += -nostdinc
+	PLATCFLAGS += -isystem $(OO_PS4_TOOLCHAIN)/include
+	PLATCFLAGS += -isystem $(shell $(CC) -print-resource-dir)/include
+	PLATCFLAGS += -fPIE -ffunction-sections -fdata-sections
+	CXXFLAGS += -fno-rtti -fno-exceptions
+	HAVE_RZLIB := 1
+	STATIC_LINKING := 1
+
+# Sony PlayStation 4 (OrbisDev; retained for legacy builds)
+else ifeq ($(platform), orbis)
+	ifeq ($(strip $(ORBISDEV)),)
+		$(error "Please set ORBISDEV in your environment. export ORBISDEV=<path to>orbisdev")
+	endif
+	TARGET := $(TARGET_NAME)_libretro_$(platform).a
+	CC := clang
+	CXX := clang++
+	AR := orbis-ar
+	PLATCFLAGS += --target=x86_64-scei-ps4
+	PLATCFLAGS += -DORBIS -D__ORBIS__ -D__PS4__ -D_BSD_SOURCE
+	PLATCFLAGS += -isysroot $(ORBISDEV)
+	PLATCFLAGS += -fPIE -ffunction-sections -fdata-sections
+	CXXFLAGS += -fno-rtti -fno-exceptions
+	HAVE_RZLIB := 1
+	STATIC_LINKING := 1
+
+# Sony PlayStation 4 loadable libretro SELF (OrbisDev + OpenOrbis SPRX tools)
+else ifeq ($(platform), orbis-dynamic)
+	ifeq ($(strip $(ORBISDEV)),)
+		$(error "Please set ORBISDEV in your environment. export ORBISDEV=<path to>orbisdev")
+	endif
+	ifeq ($(strip $(OO_PS4_TOOLCHAIN)),)
+		$(error "Please set OO_PS4_TOOLCHAIN in your environment. export OO_PS4_TOOLCHAIN=<path to>OpenOrbis")
+	endif
+	TARGET := $(TARGET_NAME)_libretro.elf
+	CC := clang
+	CXX := clang++
+	LD := ld.lld
+	PLATCFLAGS += --target=x86_64-pc-freebsd12-elf
+	PLATCFLAGS += -DORBIS -D__ORBIS__ -D__PS4__ -D_BSD_SOURCE
+	PLATCFLAGS += -isysroot $(ORBISDEV)
+	PLATCFLAGS += -fPIC -fshort-wchar -ffunction-sections -fdata-sections
+	CXXFLAGS += -fno-rtti -fno-exceptions
+	LDFLAGS += -m elf_x86_64 -pie --export-dynamic
+	LDFLAGS += --script $(OO_PS4_TOOLCHAIN)/link.x --eh-frame-hdr
+	LDFLAGS += --version-script=link.T
+	LIBS := $(filter-out -lm,$(LIBS))
+	LIBS += $(OO_PS4_TOOLCHAIN)/lib/crtlib.o
+	PS4_DYNAMIC_STUB_DIR := $(CURDIR)/.orbis-dynamic-stubs
+	PS4_DYNAMIC_STUBS := $(PS4_DYNAMIC_STUB_DIR)/libkernel.so \
+		$(PS4_DYNAMIC_STUB_DIR)/libc.so
+	EXTRA_DEPS += $(PS4_DYNAMIC_STUBS)
+	LIBS += -L$(PS4_DYNAMIC_STUB_DIR) -lkernel -lc
+	HAVE_RZLIB := 1
+
 # ARMv
 else ifneq (,$(findstring armv,$(platform)))
 	TARGET = $(TARGET_NAME)_libretro.so
@@ -895,7 +960,11 @@ else
 	LD = link.exe
 endif
 else
+ifeq ($(platform),orbis-dynamic)
+	LD = ld.lld
+else
 	LD = $(CC)
+endif
 endif
 
 define NEWLINE
@@ -904,7 +973,7 @@ define NEWLINE
 endef
 
 all:	$(TARGET)
-$(TARGET): $(OBJECTS)
+$(TARGET): $(OBJECTS) $(EXTRA_DEPS)
 ifeq ($(STATIC_LINKING),1)
 	@echo Archiving $@...
 ifeq ($(SPLIT_UP_LINK), 1)
@@ -923,6 +992,16 @@ ifeq ($(SPLIT_UP_LINK), 1)
 else
 	$(HIDE)$(LD) $(LDFLAGS) $(LINKOUT)$@ $(OBJECTS) $(LIBS)
 endif
+endif
+
+ifeq ($(platform),orbis-dynamic)
+$(PS4_DYNAMIC_STUB_DIR)/libkernel.so:
+	@mkdir -p $(PS4_DYNAMIC_STUB_DIR)
+	@ln -sf $(ORBISDEV)/usr/lib/libkernel_stub.so $@
+
+$(PS4_DYNAMIC_STUB_DIR)/libc.so:
+	@mkdir -p $(PS4_DYNAMIC_STUB_DIR)
+	@ln -sf $(ORBISDEV)/usr/lib/libSceLibcInternal_stub.so $@
 endif
 
 CFLAGS += $(PLATCFLAGS) $(CDEFS)
