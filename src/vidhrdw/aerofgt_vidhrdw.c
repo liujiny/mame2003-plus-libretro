@@ -159,6 +159,12 @@ VIDEO_START( turbofrc )
 	bg1_tilemap = tilemap_create(get_bg1_tile_info,tilemap_scan_rows,TILEMAP_OPAQUE,     8,8,64,64);
 	bg2_tilemap = tilemap_create(get_bg2_tile_info,tilemap_scan_rows,TILEMAP_TRANSPARENT,8,8,64,64);
 
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE
+		"video_start_turbofrc tilemaps bg1=%p bg2=%p\n",
+		(void *)bg1_tilemap, (void *)bg2_tilemap);
+#endif
+
 	if (!bg1_tilemap || !bg2_tilemap)
 		return 1;
 

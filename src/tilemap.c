@@ -152,6 +152,11 @@ static int PenToPixel_Init( struct tilemap *tilemap )
 	for( i=0; i<4; i++ )
 	{
 		pPenToPixel = malloc( tilemap->num_pens*sizeof(UINT32) );
+#ifdef ORBIS
+		log_cb(RETRO_LOG_INFO, LOGPRE
+			"tilemap PenToPixel[%d] pens=%u ptr=%p\n",
+			i, tilemap->num_pens, (void *)pPenToPixel);
+#endif
 		if( pPenToPixel==NULL )
 		{
 			lError = 1;
@@ -296,10 +301,21 @@ static int mappings_create( struct tilemap *tilemap )
 	tilemap->max_memory_offset = max_memory_offset;
 	/* logical to cached (tilemap_mark_dirty) */
 	tilemap->memory_offset_to_cached_indx = malloc( sizeof(int)*max_memory_offset );
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE
+		"tilemap mappings max=%d forward=%p\n",
+		max_memory_offset, (void *)tilemap->memory_offset_to_cached_indx);
+#endif
 	if( tilemap->memory_offset_to_cached_indx )
 	{
 		/* cached to logical (get_tile_info) */
 		tilemap->cached_indx_to_memory_offset = malloc( sizeof(UINT32)*tilemap->num_tiles );
+#ifdef ORBIS
+		log_cb(RETRO_LOG_INFO, LOGPRE
+			"tilemap mappings tiles=%u reverse=%p\n",
+			tilemap->num_tiles,
+			(void *)tilemap->cached_indx_to_memory_offset);
+#endif
 		if( tilemap->cached_indx_to_memory_offset ) return 0; /* no error */
 		free( tilemap->memory_offset_to_cached_indx );
 	}
@@ -1628,6 +1644,12 @@ struct tilemap *tilemap_create(
 	int num_tiles;
 
 	tilemap = calloc( 1,sizeof( struct tilemap ) );
+#ifdef ORBIS
+	log_cb(RETRO_LOG_INFO, LOGPRE
+		"tilemap_create begin type=%d tile=%dx%d grid=%dx%d ptr=%p\n",
+		type, tile_width, tile_height, num_cols, num_rows,
+		(void *)tilemap);
+#endif
 	if( tilemap )
 	{
 		num_tiles = num_cols*num_rows;
@@ -1673,6 +1695,20 @@ struct tilemap *tilemap_create(
 		tilemap->pixmap = bitmap_alloc_depth( tilemap->cached_width, tilemap->cached_height, -16 );
 		tilemap->transparency_bitmap = bitmap_alloc_depth( tilemap->cached_width, tilemap->cached_height, -8 );
 
+#ifdef ORBIS
+		log_cb(RETRO_LOG_INFO, LOGPRE
+			"tilemap alloc lrow=%p lcol=%p crow=%p ccol=%p data=%p rows=%p pix=%p mask=%p cached=%ux%u\n",
+			(void *)tilemap->logical_rowscroll,
+			(void *)tilemap->logical_colscroll,
+			(void *)tilemap->cached_rowscroll,
+			(void *)tilemap->cached_colscroll,
+			(void *)tilemap->transparency_data,
+			(void *)tilemap->transparency_data_row,
+			(void *)tilemap->pixmap,
+			(void *)tilemap->transparency_bitmap,
+			tilemap->cached_width, tilemap->cached_height);
+#endif
+
 		if( tilemap->logical_rowscroll && tilemap->cached_rowscroll &&
 			tilemap->logical_colscroll && tilemap->cached_colscroll &&
 			tilemap->pixmap &&
@@ -1699,9 +1735,17 @@ struct tilemap *tilemap_create(
 			if( PenToPixel_Init( tilemap ) == 0 )
 			{
 				recalculate_scroll(tilemap);
+#ifdef ORBIS
+				log_cb(RETRO_LOG_INFO, LOGPRE
+					"tilemap_create succeeded ptr=%p\n", (void *)tilemap);
+#endif
 				return tilemap;
 			}
 		}
+#ifdef ORBIS
+		log_cb(RETRO_LOG_ERROR, LOGPRE
+			"tilemap_create failed ptr=%p\n", (void *)tilemap);
+#endif
 		tilemap_dispose( tilemap );
 	}
 	return 0;
@@ -3078,4 +3122,3 @@ static UINT8 TRANSP(HandleTransparencyNone)(struct tilemap *tilemap, UINT32 x0, 
 #undef PAL_INIT
 #undef PAL_GET
 #endif /* TRANSP*/
-
