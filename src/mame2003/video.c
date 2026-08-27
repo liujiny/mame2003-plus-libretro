@@ -162,6 +162,7 @@ void mame2003_video_init_orientation(void)
 void mame2003_video_init_conversion(UINT32 *rgb_components)
 {
    unsigned color_mode;
+   bool pixel_format_accepted;
 
    /* Case I: 16-bit indexed palette */
    if (video_config.depth == 16)
@@ -216,7 +217,14 @@ void mame2003_video_init_conversion(UINT32 *rgb_components)
       abort();
    }
 
-   environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &color_mode);
+   pixel_format_accepted = environ_cb(
+         RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &color_mode);
+#ifdef ORBIS
+   log_cb(RETRO_LOG_INFO, LOGPRE
+         "Pixel format request mode=%u accepted=%u depth=%u stride_out=%u\n",
+         color_mode, pixel_format_accepted, video_config.depth,
+         video_stride_out);
+#endif
 }
 
 /* Do a soft reinit to process new video output parameters */
@@ -231,7 +239,16 @@ void mame2003_video_reinit(void)
 int osd_create_display(
    const struct osd_create_params *params, UINT32 *rgb_components)
 {
+   size_t video_buffer_size;
+
    memcpy(&video_config, params, sizeof(video_config));
+
+#ifdef ORBIS
+   log_cb(RETRO_LOG_INFO, LOGPRE
+         "osd_create_display width=%d height=%d depth=%d colors=%d attributes=%08X\n",
+         video_config.width, video_config.height, video_config.depth,
+         video_config.colors, video_config.video_attributes);
+#endif
 
    mame2003_video_init_orientation();
    mame2003_video_init_conversion(rgb_components);
@@ -243,10 +260,22 @@ int osd_create_display(
    /* Allocate an output video buffer, if necessary */
    if (!video_do_bypass)
    {
-      video_buffer = malloc(video_config.width * video_config.height * video_stride_out);
+      video_buffer_size = (size_t)video_config.width *
+            (size_t)video_config.height * video_stride_out;
+      video_buffer = malloc(video_buffer_size);
+#ifdef ORBIS
+      log_cb(RETRO_LOG_INFO, LOGPRE
+            "video buffer bypass=%u size=%lu ptr=%p\n",
+            video_do_bypass, (unsigned long)video_buffer_size,
+            (void*)video_buffer);
+#endif
       if (!video_buffer)
          return 1;
    }
+#ifdef ORBIS
+   else
+      log_cb(RETRO_LOG_INFO, LOGPRE "video buffer bypass enabled\n");
+#endif
 
    return 0;
 }
