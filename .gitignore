@@ -4,5 +4,6 @@
 *.exe
 *.dll
 *.so
+*.a
 package.json
 .npmignore
