@@ -7,3 +7,4 @@
 *.a
 package.json
 .npmignore
+.orbis-dynamic-stubs/
