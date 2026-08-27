@@ -7,8 +7,6 @@
 *********************************************************************/
 
 #include <stdint.h>
-#include <stdarg.h>
-#include <stdio.h>
 #include <string/stdstring.h>
 #include <libretro.h>
 #include <file/file_path.h>
@@ -47,36 +45,6 @@ const struct KeyboardInfo  retroKeys[];
 
 retro_log_printf_t                         log_cb;
 static struct retro_message                frontend_message;
-
-#ifdef ORBIS
-static retro_log_printf_t ps4_frontend_log_cb;
-static unsigned ps4_load_log_count;
-static bool ps4_load_log_enabled;
-
-int sceKernelDebugOutText(int channel, const char *text);
-
-static void ps4_load_log_cb(enum retro_log_level level, const char *fmt, ...)
-{
-  char message[1024];
-  va_list args;
-
-  va_start(args, fmt);
-  vsnprintf(message, sizeof(message), fmt, args);
-  va_end(args);
-
-  if (ps4_frontend_log_cb)
-    ps4_frontend_log_cb(level, "%s", message);
-
-  if (ps4_load_log_enabled && ps4_load_log_count < 256)
-  {
-    char klog_message[1080];
-    snprintf(klog_message, sizeof(klog_message),
-          "[PS4 MAME LOAD] %s", message);
-    sceKernelDebugOutText(0, klog_message);
-    ps4_load_log_count++;
-  }
-}
-#endif
 
 struct retro_perf_callback                 perf_cb;
 retro_environment_t                        environ_cb         = NULL;
@@ -215,14 +183,7 @@ void retro_init (void)
 {
   struct retro_log_callback log;
   if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
-#ifdef ORBIS
-  {
-    ps4_frontend_log_cb = log.log;
-    log_cb = ps4_load_log_cb;
-  }
-#else
     log_cb = log.log;
-#endif
   else
     log_cb = NULL;
 
@@ -280,11 +241,6 @@ bool retro_load_game(const struct retro_game_info *game)
   int   driverIndex    = 0;
   int   port_index;
   char  *driver_lookup = NULL;
-
-#ifdef ORBIS
-  ps4_load_log_count   = 0;
-  ps4_load_log_enabled = true;
-#endif
 
   if(string_is_empty(game->path))
   {
@@ -377,18 +333,7 @@ bool retro_load_game(const struct retro_game_info *game)
   environ_cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)input_subdevice_ports);
 
   if(!run_game(driverIndex))
-  {
-#ifdef ORBIS
-    log_cb(RETRO_LOG_INFO, LOGPRE "retro_load_game completed successfully\n");
-    ps4_load_log_enabled = false;
-#endif
     return true;
-  }
-
-#ifdef ORBIS
-  log_cb(RETRO_LOG_ERROR, LOGPRE "retro_load_game failed during run_game\n");
-  ps4_load_log_enabled = false;
-#endif
 
   return false;
 }
