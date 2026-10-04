@@ -8,3 +8,8 @@ package.json
 .npmignore
 .orbis-dynamic-stubs/
 .orbis-dynamic-allocator/
+
+# Local PS4 build outputs
+*.elf
+*.oelf
+*.self
